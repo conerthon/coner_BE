@@ -1,0 +1,56 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### OS 관련 ###
+.DS_Store
+Thumbs.db
+*.swp
+
+### 데이터베이스 관련 (H2 DB 파일이 생성될 경우 대비) ###
+*.mv.db
+*.trace.db
+
+### 로그 및 보안 ###
+*.log
+.env
+.local.properties
+
+### 빌드 및 캐시 보강 ###
+.gradle/
+build/
+bin/
