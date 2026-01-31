@@ -12,9 +12,14 @@ public class AuthService {
 
     // 회원가입
     public User signup(User user) {
-        // 실제로는 여기서 비밀번호 암호화(BCrypt)를 해야 하지만, 일단 평문으로 진행합니다.
-        return userRepository.save(user);
-    }
+    // 1. 중복 이메일 확인
+    userRepository.findByEmail(user.getEmail()).ifPresent(u -> {
+        throw new RuntimeException("이미 사용 중인 이메일입니다.");
+    });
+
+    // 2. 저장
+    return userRepository.save(user);
+}
 
     // 로그인
     public User login(String email, String password) {
