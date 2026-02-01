@@ -1,6 +1,8 @@
 package com.example.Traveler.controller;
 
 import com.example.Traveler.domain.User;
+import com.example.Traveler.dto.LoginRequest;
+import com.example.Traveler.dto.UserResponse;
 import com.example.Traveler.service.AuthService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -30,17 +32,17 @@ public class AuthController {
 
     // 2. 로그인
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody User user, HttpSession session) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpSession session) {
         try {
-            User loggedInUser = authService.login(user.getEmail(), user.getPassword());
+            User loggedInUser = authService.login(loginRequest.getEmail(), loginRequest.getPassword());
             session.setAttribute("loginUser", loggedInUser);
 
-            // 유저 정보 중 필요한 것만 Map에 담아 JSON으로 반환
-            Map<String, String> response = new HashMap<>();
-            response.put("nickname", loggedInUser.getNickname());
-            response.put("email", loggedInUser.getEmail());
+            UserResponse userResponse = new UserResponse(
+            loggedInUser.getNickname(),
+            loggedInUser.getEmail()
+        );
 
-            return ResponseEntity.ok(response);
+        return ResponseEntity.ok(userResponse);
         } catch (RuntimeException e) {
             // 로그인 실패 시 401 Unauthorized 반환
             return ResponseEntity.status(401).body(e.getMessage());
@@ -53,10 +55,10 @@ public class AuthController {
         User user = (User) session.getAttribute("loginUser");
 
         if (user == null) {
-            return ResponseEntity.status(403).body("로그인이 필요한 세션입니다.");
+            return ResponseEntity.status(401).body("로그인이 필요한 세션입니다.");
         }
 
-        return ResponseEntity.ok(user.getNickname() + "님은 현재 로그인 상태입니다.");
+        return ResponseEntity.ok(new UserResponse(user.getNickname(), user.getEmail()));
     }
 
     // 4. 로그아웃
