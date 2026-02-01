@@ -9,9 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -23,9 +20,14 @@ public class AuthController {
     public ResponseEntity<?> signup(@RequestBody User user) {
         try {
             User savedUser = authService.signup(user);
-            return ResponseEntity.ok("회원가입 성공! (ID: " + savedUser.getId() + ")");
+            // 가입 후 바로 유저 정보를 반환해서 프론트가 활용하게 함
+            return ResponseEntity.ok(new UserResponse(
+                savedUser.getId(),
+                savedUser.getEmail(),
+                savedUser.getNickname(),
+                savedUser.getProfileImage()
+            ));
         } catch (RuntimeException e) {
-            // 중복 가입 등 에러 발생 시 400 Bad Request와 에러 메시지 반환
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -34,17 +36,16 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpSession session) {
         try {
-            User loggedInUser = authService.login(loginRequest.getEmail(), loginRequest.getPassword());
-            session.setAttribute("loginUser", loggedInUser);
+            User user = authService.login(loginRequest.getEmail(), loginRequest.getPassword());
+            session.setAttribute("loginUser", user);
 
-            UserResponse userResponse = new UserResponse(
-            loggedInUser.getNickname(),
-            loggedInUser.getEmail()
-        );
-
-        return ResponseEntity.ok(userResponse);
+            return ResponseEntity.ok(new UserResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getNickname(),
+                user.getProfileImage()
+            ));
         } catch (RuntimeException e) {
-            // 로그인 실패 시 401 Unauthorized 반환
             return ResponseEntity.status(401).body(e.getMessage());
         }
     }
@@ -53,12 +54,14 @@ public class AuthController {
     @GetMapping("/check")
     public ResponseEntity<?> checkStatus(HttpSession session) {
         User user = (User) session.getAttribute("loginUser");
+        if (user == null) return ResponseEntity.status(401).body("unauthorized");
 
-        if (user == null) {
-            return ResponseEntity.status(401).body("로그인이 필요한 세션입니다.");
-        }
-
-        return ResponseEntity.ok(new UserResponse(user.getNickname(), user.getEmail()));
+        return ResponseEntity.ok(new UserResponse(
+            user.getId(),
+            user.getEmail(),
+            user.getNickname(),
+            user.getProfileImage()
+        ));
     }
 
     // 4. 로그아웃

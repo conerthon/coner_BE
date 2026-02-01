@@ -16,6 +16,14 @@ public class User {
 
     @Column(nullable = false)
     private String password;
-
     private String nickname;
+    private String profileImage;
+
+    @Builder
+    public User(String email, String password, String nickname, String profileImage) {
+        this.email = email;
+        this.password = password;
+        this.nickname = nickname;
+        this.profileImage = profileImage;
+    }
 }
