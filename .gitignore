@@ -54,3 +54,5 @@ Thumbs.db
 .gradle/
 build/
 bin/
+
+src/main/resources/application.properties

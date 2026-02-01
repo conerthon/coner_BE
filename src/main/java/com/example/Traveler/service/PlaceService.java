@@ -1,9 +1,9 @@
 package com.example.Traveler.service;
 
 import com.example.Traveler.domain.Place;
-import com.example.Traveler.domain.User; // 1. User 엔티티 임포트 확인!
+import com.example.Traveler.domain.User;
 import com.example.Traveler.repository.PlaceRepository;
-import com.example.Traveler.repository.UserRepository; // 2. UserRepository 임포트 추가
+import com.example.Traveler.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,15 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class PlaceService {
 
     private final PlaceRepository placeRepository;
-    private final UserRepository userRepository; // 3. 의존성 주입 추가!
+    private final UserRepository userRepository;
+    private final GeminiService geminiService;
 
     public Place captureUrl(String url, Long userId) {
-        // 4. 유저 확인 로직
+
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("ID가 " + userId + "인 유저를 찾을 수 없습니다."));
 
         try {
-            // "사람인 척" 하기 위한 User-Agent 설정 추가 (403/404 방지)
             var document = org.jsoup.Jsoup.connect(url)
                     .userAgent("Mozilla/5.0")
                     .timeout(5000)
@@ -39,11 +39,34 @@ public class PlaceService {
             place.setTitle(title);
             place.setDescription(description);
             place.setImageUrl(image);
-            place.setUser(user); // 5. 장소에 유저 정보 연결!
+            place.setUser(user);
+
+            // 만약 설명이 너무 짧거나 비어있다면 AI
+            if (description == null || description.length() < 10) {
+                String aiResult = geminiService.getSummaryFromAI(title, description);
+
+                place.setDescription(aiResult);
+
+                String tags = extractTags(aiResult);
+                place.setKeyword(tags);
+            }
 
             return placeRepository.save(place);
         } catch (Exception e) {
             throw new RuntimeException("URL 분석 중 오류 발생: " + e.getMessage());
         }
+    }
+
+    // 태그만 쏙쏙 뽑아주는 도우미 메서드
+    private String extractTags(String text) {
+        if (text == null) return null;
+        StringBuilder tags = new StringBuilder();
+        String[] words = text.split("\\s+"); // 공백 기준으로 나누기
+        for (String word : words) {
+            if (word.startsWith("#")) {
+                tags.append(word).append(" ");
+            }
+        }
+        return tags.toString().trim();
     }
 }
