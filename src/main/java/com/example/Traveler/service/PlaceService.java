@@ -7,6 +7,7 @@ import com.example.Traveler.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -17,56 +18,74 @@ public class PlaceService {
     private final UserRepository userRepository;
     private final GeminiService geminiService;
 
+    /**
+     * 1. URL 요약 및 저장 (AI 연동)
+     */
     public Place captureUrl(String url, Long userId) {
-
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("ID가 " + userId + "인 유저를 찾을 수 없습니다."));
+            .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
 
         try {
+            // 1. 이미지 추출 (og:image 메타태그 활용)
             var document = org.jsoup.Jsoup.connect(url)
                     .userAgent("Mozilla/5.0")
                     .timeout(5000)
                     .get();
+            String imageUrl = document.select("meta[property=og:image]").attr("content");
 
-            String title = document.select("meta[property=og:title]").attr("content");
-            if (title.isEmpty()) title = document.title();
+            // 2. AI 분석 호출
+            String aiRawResponse = geminiService.getSummaryFromURL(url);
 
-            String description = document.select("meta[property=og:description]").attr("content");
-            String image = document.select("meta[property=og:image]").attr("content");
+            // AI 응답 파싱 (파이프라인 '|' 기준)
+            String[] parts = aiRawResponse.split("\\|");
 
             Place place = new Place();
             place.setUrl(url);
-            place.setTitle(title);
-            place.setDescription(description);
-            place.setImageUrl(image);
             place.setUser(user);
+            place.setImageUrl(imageUrl);
 
-            // 만약 설명이 너무 짧거나 비어있다면 AI
-            if (description == null || description.length() < 10) {
-                String aiResult = geminiService.getSummaryFromAI(title, description);
-
-                place.setDescription(aiResult);
-
-                String tags = extractTags(aiResult);
-                place.setKeyword(tags);
-            }
+            // 파싱 데이터 매핑
+            place.setTitle(parts.length > 0 ? parts[0].trim() : "알 수 없는 장소");
+            place.setDescription(parts.length > 1 ? parts[1].trim() : "설명이 없습니다.");
+            place.setKeyword(parts.length > 2 ? parts[2].trim() : "#여행 #추천");
 
             return placeRepository.save(place);
+
         } catch (Exception e) {
-            throw new RuntimeException("URL 분석 중 오류 발생: " + e.getMessage());
+            // 에러 발생 시 롤백 방지 및 최소 데이터 저장
+            Place fallbackPlace = new Place();
+            fallbackPlace.setUrl(url);
+            fallbackPlace.setTitle("장소 정보 불러오기 실패");
+            fallbackPlace.setDescription("URL 분석 중 오류가 발생했습니다: " + e.getMessage());
+            fallbackPlace.setUser(user);
+            return placeRepository.save(fallbackPlace);
         }
     }
 
-    // 태그만 쏙쏙 뽑아주는 도우미 메서드
-    private String extractTags(String text) {
-        if (text == null) return null;
-        StringBuilder tags = new StringBuilder();
-        String[] words = text.split("\\s+"); // 공백 기준으로 나누기
-        for (String word : words) {
-            if (word.startsWith("#")) {
-                tags.append(word).append(" ");
-            }
+    /**
+     * 2. 모든 장소 조회
+     */
+    @Transactional(readOnly = true)
+    public List<Place> findAll() {
+        return placeRepository.findAll();
+    }
+
+    /**
+     * 3. 특정 유저의 장소 목록 조회
+     */
+    @Transactional(readOnly = true)
+    public List<Place> findByUserId(Long userId) {
+        // Repository에 findByUserId 또는 findByUser_Id 메서드가 선언되어 있어야 합니다.
+        return placeRepository.findByUserId(userId);
+    }
+
+    /**
+     * 4. 장소 삭제
+     */
+    public void delete(Long placeId) {
+        if (!placeRepository.existsById(placeId)) {
+            throw new RuntimeException("삭제할 장소가 존재하지 않습니다.");
         }
-        return tags.toString().trim();
+        placeRepository.deleteById(placeId);
     }
 }
