@@ -1,5 +1,6 @@
 package com.example.Traveler.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ public class TravelGroup {
     private String inviteCode;
 
     // TravelGroup - UserGroup 엔티티
+    @JsonIgnore // dto를 만들어서 보내는 것이 좋음.
     @OneToMany(mappedBy = "travelGroup", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserGroup> userGroups = new ArrayList<>();
 

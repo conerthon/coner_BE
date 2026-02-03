@@ -27,22 +27,12 @@ public class GroupController {
             @RequestBody GroupRequest.Create request,
             HttpSession session) {
 
-        // 테스트를 위해 유저 1번(호스트)을 세션에 넣음. 추후에 수정 필요
-        User testUser = userRepository.findById(1L).orElse(null);
-        session.setAttribute("loginUser", testUser);
-        
-        // 1. 세션에서 로그인 유저 가져오기
         User loginUser = (User) session.getAttribute("loginUser");
-
-        // 2. 로그인 여부 체크
         if (loginUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("로그인이 필요한 서비스입니다.");
         }
 
-        // 3. 그룹 생성 실행
         TravelGroup group = groupService.createGroup(request.getGroupName(), loginUser);
-
-        // 4. 응답 DTO 반환
         return ResponseEntity.status(HttpStatus.CREATED).body(new GroupResponse(group));
     }
 
@@ -51,22 +41,12 @@ public class GroupController {
     public ResponseEntity<String> joinGroup(
             @RequestBody GroupRequest.Join request,
             HttpSession session) {
-
-        // 테스트를 위해 유저 2번(멤버)을 세션에 넣음. 추후에 수정 필요
-        User testUser = userRepository.findById(2L).orElse(null);
-        session.setAttribute("loginUser", testUser);
-
-        // 1. 세션에서 로그인 유저 가져오기
         User loginUser = (User) session.getAttribute("loginUser");
-
-        // 2. 로그인 여부 체크
         if (loginUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("로그인이 필요한 서비스입니다.");
         }
 
-        // 3. 그룹 가입 실행
         groupService.joinGroup(request.getInviteCode(), loginUser);
-
         return ResponseEntity.ok("성공적으로 그룹에 참여했습니다.");
     }
 }
