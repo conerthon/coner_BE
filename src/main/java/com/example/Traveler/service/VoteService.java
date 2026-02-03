@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,10 +23,10 @@ public class VoteService {
     private final UserRepository userRepository;
     private final PlaceRepository placeRepository;
 
-    // 투표 실행
+    // 한 장소에 대해 투표 실행
     @Transactional
     public void castVote(Long groupId, Long placeId, Long userId, boolean isLike) {
-        // 1. 엔티티 존재 여부 확인
+        // 1. 불러오기
         TravelGroup group = travelGroupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("그룹이 존재하지 않습니다."));
         Place place = placeRepository.findById(placeId)
@@ -33,12 +34,12 @@ public class VoteService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
 
-        // 2. 그룹 멤버 권한 확인
+        // 2. 해당 그룹에 유저가 있는지 확인
         if (!userGroupRepository.existsByUserAndTravelGroup(user, group)) {
             throw new IllegalStateException("해당 그룹에 참여 중인 유저가 아닙니다.");
         }
 
-        // 3. 중복 투표 체크 (수정 불가이므로 이미 존재하면 예외 발생)
+        // 3. 중복 투표 확인
         voteRepository.findByUserAndTravelGroupAndPlace(user, group, place)
                 .ifPresent(v -> {
                     throw new IllegalStateException("이미 투표를 완료한 장소입니다.");
@@ -56,32 +57,44 @@ public class VoteService {
     }
 
 
-    // 특정 장소의 투표 상세 결과 집계
+    // 한 장소에 대한 투표 결과
     public VoteResultResponse getVoteResult(Long groupId, Long placeId) {
+        // 1. 불러오기
         TravelGroup group = travelGroupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("그룹 없음"));
         Place place = placeRepository.findById(placeId)
                 .orElseThrow(() -> new IllegalArgumentException("장소 없음"));
 
+        // 투표 기록
         List<Vote> allVotes = voteRepository.findAllByTravelGroupAndPlace(group, place);
+        // 투표한 사람 수
         long totalGroupMembers = group.getUserGroups().size();
-
+        // 좋아요 누른 사람
         List<String> likedUsers = allVotes.stream()
                 .filter(Vote::isLike)
                 .map(v -> v.getUser().getNickname())
                 .collect(Collectors.toList());
-
+        // 싫어요 누른 사람
         List<String> dislikedUsers = allVotes.stream()
                 .filter(v -> !v.isLike())
                 .map(v -> v.getUser().getNickname())
                 .collect(Collectors.toList());
 
-        // 과반수(50% 초과) 여부
-        boolean isConfirmed = (double) likedUsers.size() / totalGroupMembers > 0.5;
+        boolean isConfirmed;
+        // 50% 넘어야 살아남도록 (2명이면 1명 찬성했을 때 살아남음)
+        if (totalGroupMembers <= 2) {
+            isConfirmed = !likedUsers.isEmpty();
+            // System.out.println("찬성 멤버 수: " + likedUsers.size());
+        } else {
+            isConfirmed = (double) likedUsers.size() / totalGroupMembers > 0.5;
+        }
 
         return new VoteResultResponse(
                 place.getId(),
                 place.getTitle(),
+                place.getDescription(),
+                place.getImageUrl(),
+                place.getKeyword(),
                 allVotes.size(),
                 likedUsers.size(),
                 dislikedUsers.size(),
@@ -91,27 +104,41 @@ public class VoteService {
         );
     }
 
-    // 과반수 찬성으로 확정된 장소 리스트만 조회
+    // 살아남은 장소 리스트만 조회
     public List<ConfirmedPlaceResponse> getConfirmedPlaces(Long groupId) {
         TravelGroup group = travelGroupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("그룹 없음"));
 
-        // PlaceRepository에 findAllByTravelGroup(group) 메서드가 필요
+        // 모든 장소를 가져오기 위해서 PlaceRepository에 findAllByTravelGroup(group) 메서드 필요
         List<Place> allPlaces = placeRepository.findAllByTravelGroup(group);
+        // System.out.println("장소 수: " + allPlaces);
         long totalGroupMembers = group.getUserGroups().size();
+        // System.out.println("투표한 사람: " + totalGroupMembers);
 
         return allPlaces.stream()
-                .filter(place -> {
-                    long likeCount = voteRepository.countByTravelGroupAndPlaceAndIsLikeTrue(group, place);
-                    return (double) likeCount / totalGroupMembers > 0.5;
+                .map(place -> {
+                    try {
+                        // 메서드 이름을 countConfirmedVotes로 변경
+                        long likeCount = voteRepository.countConfirmedVotes(group, place);
+
+                        boolean isConfirmed = (totalGroupMembers <= 2) ? (likeCount >= 1) : (double) likeCount / totalGroupMembers > 0.5;
+
+                        if (isConfirmed) {
+                            return new ConfirmedPlaceResponse(
+                                    place.getId(), place.getTitle(), place.getImageUrl(), place.getKeyword(), place.getDescription());
+                        }
+                    } catch (Exception e) {
+                        System.out.println("에러 발생 장소 ID: " + place.getId());
+                        e.printStackTrace();
+                    }
+                    return null;
                 })
-                .map(place -> new ConfirmedPlaceResponse(
-                        place.getId(),
-                        place.getTitle(),
-                        place.getImageUrl(),
-                        place.getKeyword(),
-                        voteRepository.countByTravelGroupAndPlaceAndIsLikeTrue(group, place)
-                ))
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    // 그룹마다 살아남은 장소 개수
+    public int getConfirmedCount(Long groupId) {
+        return getConfirmedPlaces(groupId).size();
     }
 }

@@ -5,13 +5,20 @@ import com.example.Traveler.dto.ConfirmedPlaceResponse;
 import com.example.Traveler.dto.VoteResultResponse;
 import com.example.Traveler.repository.UserRepository;
 import com.example.Traveler.service.VoteService;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -34,7 +41,8 @@ public class VoteController {
         if (session.getAttribute("loginUser") == null) {
             userRepository.findById(1L).ifPresent(u -> session.setAttribute("loginUser", u));
         }
-
+        
+        // 로그인 되었는지 확인
         User loginUser = (User) session.getAttribute("loginUser");
         if (loginUser == null) {
             return ResponseEntity.status(401).body("로그인이 필요합니다.");
@@ -67,9 +75,17 @@ public class VoteController {
         return ResponseEntity.ok(voteService.getConfirmedPlaces(groupId));
     }
 
+    // 살아남은 장소 개수만 반환
+    @GetMapping("/confirmed/count")
+    public ResponseEntity<Integer> getConfirmedCount(@PathVariable Long groupId) {
+        return ResponseEntity.ok(voteService.getConfirmedCount(groupId));
+    }
+
+
     @Getter
     @NoArgsConstructor
     public static class VoteRequest {
+        @JsonProperty("isLike")
         private boolean isLike;
     }
 }

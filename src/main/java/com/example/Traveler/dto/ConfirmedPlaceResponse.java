@@ -8,7 +8,7 @@ import lombok.Getter;
 public class ConfirmedPlaceResponse {
     private Long placeId;
     private String title;
+    private String description;
     private String imageUrl;
     private String keyword;
-    private long likeCount; // 몇 명이나 찬성했는지 보여주면 좋으니까요!
 }
