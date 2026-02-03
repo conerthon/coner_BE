@@ -81,6 +81,45 @@ public class VoteController {
         return ResponseEntity.ok(voteService.getConfirmedCount(groupId));
     }
 
+    // 일정표 다운
+    @GetMapping("/confirmed/download")
+    public void downloadItinerary(@PathVariable Long groupId, HttpServletResponse response) throws IOException {
+        // 살아남은 장소 리스트 가져오기
+        List<ConfirmedPlaceResponse> confirmedPlaces = voteService.getConfirmedPlaces(groupId);
+
+        // 엑셀 시트 생성
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("여행 일정표");
+
+        // 헤더 행
+        Row headerRow = sheet.createRow(0);
+        headerRow.createCell(0).setCellValue("순번");
+        headerRow.createCell(1).setCellValue("장소명");
+        headerRow.createCell(2).setCellValue("키워드");
+
+        // 데이터 행
+        int rowNum = 1;
+        for (ConfirmedPlaceResponse place : confirmedPlaces) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(rowNum - 1); // 1, 2, 3...
+            row.createCell(1).setCellValue(place.getTitle());
+            row.createCell(2).setCellValue(place.getKeyword());
+        }
+
+
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
+
+        // 파일 다운로드를 위한 응답 설정
+        String fileName = "travel_itinerary.xlsx";
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=" + fileName);
+
+        // 파일 전송하고 종료
+        workbook.write(response.getOutputStream());
+        workbook.close();
+    }
+
 
     @Getter
     @NoArgsConstructor
