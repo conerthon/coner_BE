@@ -1,8 +1,10 @@
 package com.example.Traveler.service;
 
 import com.example.Traveler.domain.Place;
+import com.example.Traveler.domain.TravelGroup;
 import com.example.Traveler.domain.User;
 import com.example.Traveler.repository.PlaceRepository;
+import com.example.Traveler.repository.TravelGroupRepository;
 import com.example.Traveler.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,13 +19,17 @@ public class PlaceService {
     private final PlaceRepository placeRepository;
     private final UserRepository userRepository;
     private final GeminiService geminiService;
+    private final TravelGroupRepository travelGroupRepository;
 
     /**
      * 1. URL 요약 및 저장 (AI 연동)
      */
-    public Place captureUrl(String url, Long userId) {
+    public Place captureUrl(String url, Long userId, Long groupId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없습니다."));
+
+        TravelGroup group = travelGroupRepository.findById(groupId) // groupRepository 주입 필요!
+                .orElseThrow(() -> new RuntimeException("그룹을 찾을 수 없습니다."));
 
         try {
             // 1. 이미지 추출 (og:image 메타태그 활용)
@@ -42,6 +48,7 @@ public class PlaceService {
             Place place = new Place();
             place.setUrl(url);
             place.setUser(user);
+            place.setTravelGroup(group);
             place.setImageUrl(imageUrl);
 
             // 파싱 데이터 매핑
@@ -58,6 +65,7 @@ public class PlaceService {
             fallbackPlace.setTitle("장소 정보 불러오기 실패");
             fallbackPlace.setDescription("URL 분석 중 오류가 발생했습니다: " + e.getMessage());
             fallbackPlace.setUser(user);
+            fallbackPlace.setTravelGroup(group);
             return placeRepository.save(fallbackPlace);
         }
     }

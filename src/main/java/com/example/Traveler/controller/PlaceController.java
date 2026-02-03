@@ -1,9 +1,12 @@
 package com.example.Traveler.controller;
 
 import com.example.Traveler.domain.Place;
+import com.example.Traveler.domain.User;
 import com.example.Traveler.service.PlaceService;
+import jakarta.servlet.http.HttpSession;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +23,7 @@ public class PlaceController {
     @PostMapping("/capture")
     public ResponseEntity<Place> capture(@RequestBody PlaceRequest request) {
         // AI가 분석한 결과를 DB에 저장하고 그 객체를 반환
-        return ResponseEntity.ok(placeService.captureUrl(request.getUrl(), request.getUserId()));
+        return ResponseEntity.ok(placeService.captureUrl(request.getUrl(), request.getUserId(), request.getGroupId()));
     }
 
     // 2. 전체 장소 목록 조회
@@ -48,4 +51,5 @@ public class PlaceController {
 class PlaceRequest {
     private String url;
     private Long userId;
+    private Long groupId;
 }
